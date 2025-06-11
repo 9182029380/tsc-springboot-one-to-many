@@ -28,12 +28,24 @@ public class BankCustomerService {
     }
 
     public BankCustomer updateCustomer(Long id, BankCustomer updatedCustomer) {
-        BankCustomer existing = getCustomerById(id);
-        existing.setName(updatedCustomer.getName());
-        existing.setEmail(updatedCustomer.getEmail());
-        existing.setAccounts(updatedCustomer.getAccounts());
-        return customerRepository.save(existing);
+        return customerRepository.findById(id).map(existingCustomer -> {
+            existingCustomer.setName(updatedCustomer.getName());
+            existingCustomer.setEmail(updatedCustomer.getEmail());
+
+            // Clear existing accounts and re-add from incoming request (if needed)
+            existingCustomer.getAccounts().clear();
+
+            if (updatedCustomer.getAccounts() != null) {
+                updatedCustomer.getAccounts().forEach(account -> {
+                    account.setCustomer(existingCustomer); // Set the back-reference
+                    existingCustomer.getAccounts().add(account);
+                });
+            }
+
+            return customerRepository.save(existingCustomer);
+        }).orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
     }
+
 
     public void deleteCustomer(Long id) {
         customerRepository.deleteById(id);
